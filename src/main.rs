@@ -16,19 +16,22 @@ fn main() {
 fn handle_connection(mut stream: TcpStream) {
     let buf_reader = BufReader::new(&mut stream);
 
-    let http_request: Vec<_> = buf_reader
-        .lines()
-        .map(|result| result.unwrap())
-        .take_while(|line| !line.is_empty())
-        .collect();
-
-    println!("Request: {:#?}", http_request);
-
-    let content = r#"{"hello": "world"}"#;
-    let content_len = content.len();
+    let request_line = buf_reader.lines().next().unwrap().unwrap();
     let content_type = r#"Content-Type: application/json"#;
+
+    let (status_line, content) = if request_line == "GET / HTTP/1.1" {
+        let status_line = "HTTP/1.1 200 OK";
+        let content = r#"{"hello": "world"}"#;
+        (status_line, content)
+    } else {
+        let status_line = "HTTP/1.1 404 NOT FOUND";
+        let content = r#"{ "message": "not found" }"#;
+        (status_line, content)
+    };
+
+    let content_len = content.len();
     let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Length: {content_len}\r\n{content_type}\r\n\r\n{content}"
+        "{status_line}\r\nContent-Length: {content_len}\r\n{content_type}\r\n\r\n{content}"
     );
     stream.write_all(response.as_bytes()).unwrap();
 }
