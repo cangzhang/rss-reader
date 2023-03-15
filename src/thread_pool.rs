@@ -5,8 +5,8 @@ use crate::worker::Worker;
 pub type Job = Box<dyn FnOnce() + Send + 'static>;
 
 pub struct ThreadPool {
-    workers: Vec<crate::worker::Worker>,
-    sender: mpsc::Sender<Job>,
+    pub workers: Vec<crate::worker::Worker>,
+    pub sender: Option<mpsc::Sender<Job>>,
 }
 
 impl ThreadPool {
@@ -24,7 +24,7 @@ impl ThreadPool {
 
         Self {
             workers,
-            sender: tx,
+            sender: Some(tx),
         }
     }
 
@@ -33,6 +33,19 @@ impl ThreadPool {
         F: FnOnce() + Send + 'static,
     {
         let job = Box::new(f);
-        self.sender.send(job).unwrap();
+        self.sender.as_ref().unwrap().send(job).unwrap();
+    }
+}
+
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        drop(self.sender.take());
+
+        for worker in &mut self.workers {
+            println!("Shutting down worker {}", worker.id);
+            if let Some(th) = worker.thread.take() {
+                th.join().unwrap();
+            }
+        }
     }
 }

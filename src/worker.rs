@@ -6,19 +6,30 @@ use std::{
 use crate::thread_pool::Job;
 
 pub struct Worker {
-    id: usize,
-    thread: thread::JoinHandle<()>,
+    pub id: usize,
+    pub thread: Option<thread::JoinHandle<()>>,
 }
 
 impl Worker {
     pub fn new(id: usize, rx: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
         let thread = thread::spawn(move || loop {
-            while let Ok(job) = rx.lock().unwrap().recv() {
-                println!("Worker {id} got a job, executing....");
-                job();
+            let message = rx.lock().unwrap().recv();
+
+            match message {
+                Ok(job) => {
+                    println!("Worker {id} got a job, executing....");
+                    job();
+                }
+                Err(_) => {
+                    println!("Worker {id} disconnected, shutting down");
+                    break;
+                }
             }
         });
 
-        Worker { id, thread }
+        Worker {
+            id,
+            thread: Some(thread),
+        }
     }
 }
