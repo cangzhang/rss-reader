@@ -3,13 +3,20 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
+use thread_pool::ThreadPool;
+
+pub mod thread_pool;
+pub mod worker;
+
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:5050").unwrap();
+    let pool = ThreadPool::new(4);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-        println!("Connection established");
-        handle_connection(stream);
+        pool.exec(|| {
+            handle_connection(stream);
+        });
     }
 }
 
