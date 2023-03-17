@@ -1,49 +1,11 @@
-use std::{
-    io::{prelude::*, BufReader},
-    net::{TcpListener, TcpStream},
-};
+use axum::{routing::get, Router};
 
-use thread_pool::ThreadPool;
+#[tokio::main]
+async fn main() {
+    let app = Router::new().route("/", get(|| async { "Hello, world!" }));
 
-pub mod thread_pool;
-pub mod worker;
-
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:5050").unwrap();
-    let pool = ThreadPool::new(4);
-
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
-
-        pool.exec(|| {
-            handle_connection(stream);
-        });
-    }
-
-    println!("Shutting down.");
-}
-
-fn handle_connection(mut stream: TcpStream) {
-    let buf_reader = BufReader::new(&mut stream);
-
-    let request_line = buf_reader.lines().next().unwrap().unwrap();
-    let content_type = r#"Content-Type: application/json"#;
-
-    let (status_line, content) = if request_line == "GET / HTTP/1.1" {
-        let status_line = "HTTP/1.1 200 OK";
-        let content = r#"{"hello": "world"}"#;
-        (status_line, content)
-    } else {
-        let status_line = "HTTP/1.1 404 NOT FOUND";
-        let content = r#"{ "message": "not found" }"#;
-        (status_line, content)
-    };
-
-    let content_len = content.len();
-    let response = format!(
-        "{status_line}\r\nContent-Length: {content_len}\r\n{content_type}\r\n\r\n{content}"
-    );
-
-    stream.write_all(response.as_bytes()).unwrap();
-    stream.flush().unwrap();
+    axum::Server::bind(&"0.0.0.0:5050".parse().unwrap())
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }
