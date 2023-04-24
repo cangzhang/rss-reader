@@ -7,5 +7,10 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.5", features = ["http2", "json"] }
-tokio = { version = "1", features = ["full"] }
-serde_json = "1.0.94"
+tokio = { version = "1.0", features = ["full"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1.0"
+sqlx = { version = "0.5", features = ["runtime-tokio-native-tls", "sqlite"] }
