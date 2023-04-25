@@ -14,3 +14,4 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1.0"
 sqlx = { version = "0.5", features = ["runtime-tokio-native-tls", "sqlite"] }
+dotenvy = "0.15"

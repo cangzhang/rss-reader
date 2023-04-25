@@ -17,6 +17,7 @@ async fn json() -> Json<Value> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    dotenvy::dotenv()?;
     tracing_subscriber::fmt::init();
 
     let db_pool = SqlitePool::connect(&env::var("DATABASE_URL")?).await?;
