@@ -54,7 +54,7 @@ pub async fn login(
 ) -> Result<(StatusCode, Json<users::User>), errors::CustomError> {
     let user = sqlx::query_as!(
         users::User,
-        r#"SELECT id, name, active, password_hash FROM users where name = ?"#,
+        r#"SELECT id, name, active, password_hash FROM users WHERE name = ?"#,
         form.name,
     )
     .fetch_one(&db_pool)
