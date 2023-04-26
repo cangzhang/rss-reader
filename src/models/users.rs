@@ -13,3 +13,9 @@ pub struct CreateUserForm {
     pub name: String,
     pub password: String,
 }
+
+#[derive(Deserialize, Serialize, sqlx::FromRow)]
+pub struct LoginForm {
+    pub name: String,
+    pub password: String,
+}

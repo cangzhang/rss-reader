@@ -28,7 +28,8 @@ async fn main() -> anyhow::Result<()> {
             "/api",
             Router::new()
                 .route("/ping", get(json))
-                .route("/user", post(controllers::users::create_user)),
+                .route("/user", post(controllers::users::create_user))
+                .route("/login", post(controllers::users::login)),
         )
         .layer(Extension(db_pool))
         .layer(CookieManagerLayer::new());

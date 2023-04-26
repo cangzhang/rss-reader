@@ -8,9 +8,9 @@ use crate::{errors, models::users};
 const COOKIE_NAME: &str = "visited";
 
 pub async fn create_user(
-  Extension(db_pool): Extension<SqlitePool>,
-  cookies: Cookies,
-  Json(form): Json<users::CreateUserForm>,
+    Extension(db_pool): Extension<SqlitePool>,
+    cookies: Cookies,
+    Json(form): Json<users::CreateUserForm>,
 ) -> Result<(StatusCode, Json<users::User>), errors::CustomError> {
     let visited = cookies
         .get(COOKIE_NAME)
@@ -46,4 +46,28 @@ pub async fn create_user(
     .map_err(|_| errors::CustomError::InternalServerError)?;
 
     Ok((StatusCode::CREATED, Json(user)))
+}
+
+pub async fn login(
+    Extension(db_pool): Extension<SqlitePool>,
+    Json(form): Json<users::LoginForm>,
+) -> Result<(StatusCode, Json<users::User>), errors::CustomError> {
+    let user = sqlx::query_as!(
+        users::User,
+        r#"SELECT id, name, active, password_hash FROM users where name = ?"#,
+        form.name,
+    )
+    .fetch_one(&db_pool)
+    .await
+    .map_err(|_| errors::CustomError::InternalServerError)?;
+
+    let valid = bcrypt::verify(&form.password, &user.password_hash);
+
+    if let Ok(valid) = valid {
+        if valid {
+            return Ok((StatusCode::OK, Json(user)));
+        }
+    }
+
+    return Err(errors::CustomError::BadRequest);
 }
