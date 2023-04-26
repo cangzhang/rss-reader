@@ -6,6 +6,7 @@ use axum::{
 };
 use serde_json::{json, Value};
 use sqlx::SqlitePool;
+use tower_cookies::CookieManagerLayer;
 
 mod controllers;
 mod errors;
@@ -20,12 +21,18 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv()?;
     tracing_subscriber::fmt::init();
 
-    let db_pool = SqlitePool::connect(&env::var("DATABASE_URL")?).await?;
+    let db_pool: SqlitePool = SqlitePool::connect(&env::var("DATABASE_URL")?).await?;
 
     let app = Router::new()
-        .route("/api/ping", get(json))
-        .route("/api/user", post(controllers::users::create_user))
-        .layer(Extension(db_pool));
+        .nest(
+            "/api",
+            Router::new()
+                .route("/ping", get(json))
+                .route("/user", post(controllers::users::create_user)),
+        )
+        .layer(Extension(db_pool))
+        .layer(CookieManagerLayer::new());
+
     let addr = SocketAddr::from(([127, 0, 0, 1], 5050));
     tracing::debug!("Listening on {}", addr);
     axum::Server::bind(&addr)
