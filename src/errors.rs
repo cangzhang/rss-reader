@@ -3,6 +3,7 @@ use serde_json::json;
 pub enum CustomError {
     BadRequest,
     InternalServerError,
+    InvalidCredentials,
 }
 
 impl IntoResponse for CustomError {
@@ -12,7 +13,7 @@ impl IntoResponse for CustomError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
             }
             Self::BadRequest => (StatusCode::BAD_REQUEST, "Bad Request"),
-            // Self::TaskNotFound => (StatusCode::NOT_FOUND, "Task Not Found"),
+            Self::InvalidCredentials => (StatusCode::UNAUTHORIZED, "Invalid Credentials"),
         };
         (status, Json(json!({ "error": error_message }))).into_response()
     }

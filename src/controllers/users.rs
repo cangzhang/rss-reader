@@ -1,29 +1,18 @@
 use axum::{http::StatusCode, Extension, Json};
 use bcrypt::{hash, DEFAULT_COST};
+use nanoid::nanoid;
 use sqlx::SqlitePool;
 use tower_cookies::{Cookie, Cookies};
 
-use crate::{errors, models::users};
+use crate::{errors, models::sessions, models::users};
 
-const COOKIE_NAME: &str = "visited";
+const COOKIE_USER_IDENT: &str = "user_identity";
 
 pub async fn create_user(
     Extension(db_pool): Extension<SqlitePool>,
-    cookies: Cookies,
+    _cookies: Cookies,
     Json(form): Json<users::CreateUserForm>,
 ) -> Result<(StatusCode, Json<users::User>), errors::CustomError> {
-    let visited = cookies
-        .get(COOKIE_NAME)
-        .and_then(|c| c.value().parse().ok())
-        .unwrap_or(0);
-    if visited > 10 {
-        cookies.remove(Cookie::new(COOKIE_NAME, ""));
-        println!("Reset visited count to {}", visited);
-    } else {
-        cookies.add(Cookie::new(COOKIE_NAME, (visited + 1).to_string()));
-        println!("You've been here {} times before", visited);
-    }
-
     let password_hash = hash(form.password, DEFAULT_COST).unwrap();
     let user = sqlx::query_as!(
         users::User,
@@ -50,8 +39,18 @@ pub async fn create_user(
 
 pub async fn login(
     Extension(db_pool): Extension<SqlitePool>,
+    cookies: Cookies,
     Json(form): Json<users::LoginForm>,
 ) -> Result<(StatusCode, Json<users::User>), errors::CustomError> {
+    let cookie_id = cookies
+        .get(COOKIE_USER_IDENT)
+        .and_then(|c| c.value().parse().ok())
+        .unwrap_or(String::new());
+    if cookie_id.is_empty() {
+        let id = nanoid!(8);
+        cookies.add(Cookie::new(COOKIE_USER_IDENT, id));
+    }
+
     let user = sqlx::query_as!(
         users::User,
         r#"SELECT id, name, active, password_hash FROM users WHERE name = ?"#,
@@ -59,12 +58,44 @@ pub async fn login(
     )
     .fetch_one(&db_pool)
     .await
-    .map_err(|_| errors::CustomError::InternalServerError)?;
+    .map_err(|_| errors::CustomError::InvalidCredentials)?;
 
     let valid = bcrypt::verify(&form.password, &user.password_hash);
-
     if let Ok(valid) = valid {
         if valid {
+            let session_result = sqlx::query_as::<_, sessions::Session>(
+                "SELECT * FROM sessions WHERE user_id = $1 AND cookie_id = $2",
+            )
+            .bind(user.id)
+            .bind(&cookie_id)
+            .fetch_one(&db_pool)
+            .await;
+
+            println!("{:?}", session_result);
+
+            match session_result {
+                Ok(s) => {
+                    let _r = sqlx::query(
+                        "UPDATE sessions SET last_active = datetime('now') WHERE id = $1",
+                    )
+                    .bind(s.id)
+                    .execute(&db_pool)
+                    .await
+                    .map_err(|_| errors::CustomError::InternalServerError)?;
+                }
+                Err(_) => {
+                    let _r = sqlx::query_as!(
+                        sessions::Session,
+                        r#"INSERT OR REPLACE INTO sessions (cookie_id, user_id) VALUES(?1, ?2)"#,
+                        cookie_id,
+                        user.id
+                    )
+                    .execute(&db_pool)
+                    .await
+                    .map_err(|_| errors::CustomError::InternalServerError)?;
+                }
+            }
+
             return Ok((StatusCode::OK, Json(user)));
         }
     }
