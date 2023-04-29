@@ -1,12 +1,16 @@
+use std::sync::Arc;
+
 use axum::{http::StatusCode, Extension, Json};
 use bcrypt::{hash, DEFAULT_COST};
 use nanoid::nanoid;
+use serde_json::{json, Value};
 use sqlx::SqlitePool;
 use tower_cookies::{Cookie, Cookies};
+use tracing_subscriber::fmt::format;
 
-use crate::{errors, models::sessions, models::users};
+use crate::{errors, middlewares, models::sessions, models::users};
 
-const COOKIE_USER_IDENT: &str = "user_identity";
+pub const COOKIE_USER_IDENT: &str = "user_identity";
 
 pub async fn create_user(
     Extension(db_pool): Extension<SqlitePool>,
@@ -101,4 +105,17 @@ pub async fn login(
     }
 
     return Err(errors::CustomError::BadRequest);
+}
+
+pub async fn list(
+    Extension(session): Extension<middlewares::auth::Session>,
+) -> Result<(StatusCode, Json<Value>), errors::CustomError> {
+    dbg!("{:?}", session);
+
+    return Ok((
+        StatusCode::OK,
+        Json(json!({
+            "cookie_id": 1,
+        })),
+    ));
 }

@@ -11,6 +11,7 @@ use tower_cookies::CookieManagerLayer;
 mod controllers;
 mod errors;
 mod models;
+mod middlewares;
 
 async fn json() -> Json<Value> {
     Json(json!({ "data": 42 }))
@@ -28,9 +29,11 @@ async fn main() -> anyhow::Result<()> {
             "/api",
             Router::new()
                 .route("/ping", get(json))
+                .route("/list", get(controllers::users::list))
                 .route("/user", post(controllers::users::create_user))
                 .route("/login", post(controllers::users::login)),
         )
+        // .layer(middlewares::auth::SessionLayer)
         .layer(Extension(db_pool))
         .layer(CookieManagerLayer::new());
 

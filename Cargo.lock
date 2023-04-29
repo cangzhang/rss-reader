@@ -1071,6 +1071,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "axum-core",
  "bcrypt",
  "dotenvy",
  "nanoid",
@@ -1078,7 +1079,9 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "thiserror",
  "tokio",
+ "tower",
  "tower-cookies",
  "tracing",
  "tracing-subscriber",
