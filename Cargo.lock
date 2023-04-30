@@ -1083,6 +1083,8 @@ dependencies = [
  "tokio",
  "tower",
  "tower-cookies",
+ "tower-layer",
+ "tower-service",
  "tracing",
  "tracing-subscriber",
 ]

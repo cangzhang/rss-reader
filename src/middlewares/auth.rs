@@ -3,56 +3,33 @@
 use std::{
     future::Future,
     pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
+    sync::{Arc, Mutex},
 };
 
-use axum::http::Request;
+use axum::http::{self, Request};
 use axum_core::response::Response;
 use nanoid::nanoid;
-use serde::Serialize;
 use sqlx::SqlitePool;
 use tower::{Layer, Service};
 use tower_cookies::{Cookie, Cookies};
 
 use crate::{controllers::users::COOKIE_USER_IDENT, errors::CustomError, models::sessions};
 
-#[derive(Debug, Serialize, Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Session {
     pub cookie_id: String,
     pub user_id: i64,
 }
 
+impl Session {
+    pub fn new(cookie_id: String, user_id: i64) -> Self {
+        Self { cookie_id, user_id }
+    }
+}
+
 #[derive(Clone, Debug)]
-pub struct SessionLayer {
-    pub session: Arc<Session>,
-}
-
-impl SessionLayer {
-    pub fn new(session: Arc<Session>) -> Self {
-        Self { session }
-    }
-}
-
-impl<S> Layer<S> for SessionLayer {
-    type Service = SessionService<S>;
-
-    fn layer(&self, inner: S) -> Self::Service {
-        SessionService {
-            inner,
-            session: self.session.clone(),
-        }
-    }
-}
-
-// middleware that
-// 1. inserts a session into request extensions so handlers can access it
-// 2. calls the inner service and awaits the response
-// 3. prints the session so we can see if its changed
-#[derive(Clone)]
 pub struct SessionService<S> {
     inner: S,
-    session: Arc<Session>,
 }
 
 impl<S, ReqBody, ResBody> Service<Request<ReqBody>> for SessionService<S>
@@ -69,12 +46,14 @@ where
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, mut req: Request<ReqBody>) -> Self::Future {
-        // best practice is to clone the inner service like this
+    fn call(&mut self, mut req: http::Request<ReqBody>) -> Self::Future {
         // see https://github.com/tower-rs/tower/issues/547 for details
         let clone = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, clone);
@@ -125,10 +104,24 @@ where
                 Err(_) => 0,
             };
 
-            let session = Session { cookie_id, user_id };
+            let session = Session::new(cookie_id, user_id);
+
+            // Add the application state to the request's extension
             req.extensions_mut().insert(session.clone());
+
             let res = inner.call(req).await?;
             Ok(res)
         })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct SessionManagerLayer;
+
+impl<S> Layer<S> for SessionManagerLayer {
+    type Service = SessionService<S>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        SessionService { inner }
     }
 }

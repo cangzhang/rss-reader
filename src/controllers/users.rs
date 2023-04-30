@@ -111,6 +111,8 @@ pub async fn list(
     Extension(session): Extension<middlewares::auth::Session>,
 ) -> Result<(StatusCode, Json<Value>), errors::CustomError> {
     dbg!("{:?}", session);
+    let s = session.user_id;
+    // let s = session.inner.lock().unwrap();
 
     return Ok((
         StatusCode::OK,
