@@ -1,12 +1,9 @@
-use std::sync::Arc;
-
 use axum::{http::StatusCode, Extension, Json};
 use bcrypt::{hash, DEFAULT_COST};
 use nanoid::nanoid;
 use serde_json::{json, Value};
 use sqlx::SqlitePool;
 use tower_cookies::{Cookie, Cookies};
-use tracing_subscriber::fmt::format;
 
 use crate::{errors, middlewares, models::sessions, models::users};
 
@@ -110,14 +107,13 @@ pub async fn login(
 pub async fn list(
     Extension(session): Extension<middlewares::auth::Session>,
 ) -> Result<(StatusCode, Json<Value>), errors::CustomError> {
-    dbg!("{:?}", session);
-    let s = session.user_id;
-    // let s = session.inner.lock().unwrap();
+    let s = session.inner.lock().unwrap();
 
     return Ok((
         StatusCode::OK,
         Json(json!({
-            "cookie_id": 1,
+            "cookie_id": *s.cookie_id,
+            "user_id": s.user_id,
         })),
     ));
 }

@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use axum::http::{self, Request};
+use axum::http::Request;
 use axum_core::response::Response;
 use nanoid::nanoid;
 use sqlx::SqlitePool;
@@ -16,14 +16,21 @@ use tower_cookies::{Cookie, Cookies};
 use crate::{controllers::users::COOKIE_USER_IDENT, errors::CustomError, models::sessions};
 
 #[derive(Debug, Default, Clone)]
-pub struct Session {
+pub struct SessionInner {
     pub cookie_id: String,
     pub user_id: i64,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct Session {
+    pub inner: Arc<Mutex<SessionInner>>,
+}
+
 impl Session {
     pub fn new(cookie_id: String, user_id: i64) -> Self {
-        Self { cookie_id, user_id }
+        Self {
+            inner: Arc::new(Mutex::new(SessionInner { cookie_id, user_id })),
+        }
     }
 }
 
@@ -53,7 +60,7 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, mut req: http::Request<ReqBody>) -> Self::Future {
+    fn call(&mut self, mut req: Request<ReqBody>) -> Self::Future {
         // see https://github.com/tower-rs/tower/issues/547 for details
         let clone = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, clone);
