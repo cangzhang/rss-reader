@@ -3,5 +3,6 @@
 .idea/
 .fleet/
 .DS_Store
-sqlite.*
+
 .env
+*.db

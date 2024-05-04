@@ -18,3 +18,5 @@ rand = "0.8.5"
 bcrypt = "0.14.0"
 nanoid = "0.4.0"
 axum-core = "0.3.4"
+rusqlite = { version = "0.31.0", features = ["bundled"] }
+tokio-rusqlite = "0.5.1"
