@@ -5,13 +5,6 @@ use axum::{
     Extension, Json, Router,
 };
 use serde_json::{json, Value};
-use sqlx::SqlitePool;
-use tower_cookies::CookieManagerLayer;
-
-mod controllers;
-mod errors;
-mod middlewares;
-mod models;
 
 async fn json() -> Json<Value> {
     Json(json!({ "data": 42 }))
@@ -22,25 +15,15 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv()?;
     tracing_subscriber::fmt::init();
 
-    let db_pool: SqlitePool = SqlitePool::connect(&env::var("DATABASE_URL")?).await?;
+    // let host = env::var("HOST").expect("HOST is not set in .env file");
+    let port = env::var("PORT").expect("PORT is not set in .env file");
+    let server_url = format!("0.0.0.0:{port}");
 
-    let app = Router::new()
-        .nest(
-            "/api",
-            Router::new()
-                .route("/ping", get(json))
-                .route("/list", get(controllers::users::list))
-                .route("/user", post(controllers::users::create_user))
-                .route("/login", post(controllers::users::login)),
-        )
-        .layer(middlewares::auth::SessionManagerLayer)
-        .layer(Extension(db_pool))
-        .layer(CookieManagerLayer::new());
+    let app = Router::new().nest("/api", Router::new().route("/ping", get(json)));
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 5050));
-    tracing::debug!("Listening on {}", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await?;
+    let listener = tokio::net::TcpListener::bind(&server_url).await.unwrap();
+    axum::serve(listener, app).await?;
+    tracing::debug!("Listening on {}", server_url);
+
     Ok(())
 }
