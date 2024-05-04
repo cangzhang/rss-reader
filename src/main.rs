@@ -1,7 +1,6 @@
 use std::env;
 
 use axum::{routing::get, Extension, Json, Router};
-// use serde_json::{json, Value};
 use tokio_rusqlite::{params, Connection};
 
 #[tokio::main]
@@ -16,7 +15,10 @@ async fn main() -> anyhow::Result<()> {
     let conn = Connection::open(&db_url).await?;
 
     let app = Router::new()
-        .nest("/api", Router::new().route("/ping", get(w_data)))
+        .nest(
+            "/api",
+            Router::new().route("/ping", get(w_data).post(w_data)),
+        )
         .layer(Extension(conn.clone()));
 
     let listener = tokio::net::TcpListener::bind(&server_url).await.unwrap();
@@ -30,7 +32,7 @@ async fn w_data(Extension(conn): Extension<Connection>) -> anyhow::Result<Json<V
     let _ = conn
         .call(|conn| {
             Ok(conn.execute(
-                "INSERT INTO feed (url, name) VALUES (?1, ?2)",
+                "INSERT INTO feed (url, name, created_at) VALUES (?1, ?2, datetime('now'))",
                 params![&"https://example.com", &"Example"],
             )?)
         })
